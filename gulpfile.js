@@ -15,7 +15,9 @@ var autoprefixer = require('gulp-autoprefixer'),
     buffer = require('vinyl-buffer'),
     concat = require('gulp-concat'),
     replace = require('gulp-replace'),
-    browserSync = require('browser-sync').create();
+    browserSync = require('browser-sync').create(),
+    imagemin = require("gulp-imagemin"),
+    newer = require("gulp-newer");
 
 // Set the browser that you want to support
 const AUTOPREFIXER_BROWSERS = [
@@ -67,7 +69,7 @@ function js() {
     // Start by calling browserify with our entry pointing to our main javascript file
     return (
         browserify({
-            entries: [`${paths.source}/scripts/main.js`],
+            entries: [`${paths.source}/scripts/main.js`, 'node_modules/jquery/dist/jquery.min.js'],
             transform: [babelify.configure({ presets: ['@babel/preset-env'] })]
         })
             .bundle()
@@ -104,4 +106,28 @@ function gulpSass() {
 
 gulp.task(gulpSass);
 
-gulp.task('default', gulp.series(cleanup, gulp.parallel(server, watch, js, gulpSass, copyHtml)));
+// Optimize Images
+function images() {
+    return gulp
+        .src(`${paths.source}/img/**/*`)
+        .pipe(newer(`${paths.build}/img/`))
+        .pipe(
+            imagemin([
+                imagemin.gifsicle({ interlaced: true }),
+                imagemin.jpegtran({ progressive: true }),
+                imagemin.optipng({ optimizationLevel: 5 }),
+                imagemin.svgo({
+                    plugins: [
+                        {
+                            removeViewBox: false,
+                            collapseGroups: true
+                        }
+                    ]
+                })
+            ])
+        )
+        .pipe(gulp.dest(`${paths.build}/img/`));
+}
+
+gulp.task(images);
+gulp.task('default', gulp.series(cleanup, gulp.parallel(server, watch, js, gulpSass,images, copyHtml)));
